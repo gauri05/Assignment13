@@ -11,47 +11,6 @@ from email import encoders
 import smtplib
 
 
-def Processinfor(dir,toaddr):
-    listprocess = []
-
-    if not os.path.exists(dir):
-        try:
-            os.mkdir(dir)
-        except:
-            pass  # is same as continue
-
-    separator = "-" * 80
-    log_path = os.path.join(dir, " file %s.log" % (time.time()))
-    f = open(log_path, 'w')
-    f.write(separator + "\n")
-    f.write("Process Logger:""\n")
-    f.write(separator + "\n")
-    f.write("\n")
-
-    for proc in psutil.process_iter():
-        try:
-            pinfo = proc.as_dict(attrs=['pid', 'name', 'username'])
-
-            listprocess.append(pinfo)
-
-        except(psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-
-    for element in listprocess:
-        f.write("%s\n" % element)
-
-    print("Log file is successfully generated at location %s" % (log_path))
-
-    connected = is_connected()
-
-    if connected:
-        starttime = time.time()
-        MailSender(log_path, toaddr)
-        endtime = time.time()
-
-        print('Took %s seconds to send mail' % (endtime - starttime))
-
-
 def is_connected():
     try:
         urllib3.connectionpool.connection_from_url('http://216.58.192.142 ', timeout=1)
@@ -61,7 +20,8 @@ def is_connected():
         return False
 
 
-def MailSender(filname, toaddr):
+def MailSender(filname, stime, icnt, dicnt, toaddr):
+    #MailSender(log_path, time, icnt, dicnt, toaddr)
     try:
         fromaddr = "botregauri@gmail.com"
 
@@ -76,12 +36,15 @@ def MailSender(filname, toaddr):
                        Welcome to XYZ company.
                        Please find attached document which contains Log of Running Process.
                        Log file is created at : %s
+                       Starting time of scanning = %s
+                       Total number of files scanned = %s
+                       Total number of duplicate files found = %s
 
                        This is auto generated mail.
 
                 Thanks and Regards,
                 Gauri Botre
-                """ % (toaddr, time)
+                """ % (toaddr, time, stime, icnt, dicnt)
 
         subject = """Process log generted at : %s""" % time
 
@@ -118,47 +81,32 @@ def MailSender(filname, toaddr):
         print("Unable to send mail", E)
 
 
-def findDup(path, file="Log"):
+def findDup(dir, toaddr):
+    sttime=time.time()
     icnt=0
     dicnt=0
-    flag = os.path.isabs(path)
+    flag = os.path.isabs(dir)
 
     if flag == False:
-        path = os.path.abspath(path)
-
-    exits = os.path.isdir(path)
-    #print(exits)
+        dir = os.path.abspath(dir)
+    exits = os.path.isdir(dir)
     dups = {}
-
-    if not os.path.exists(file):
-        try:
-            os.mkdir(file)
-        except:
-            pass
-
-    separator = "-" * 80
-    log_path = os.path.join(file, " file %s.log" % (time.time()))
-    f = open(log_path, 'w')
-
     if exits:
-        for dirName, subDirs, fileList in os.walk(path):
+        for dirName, subDirs, fileList in os.walk(dir):
             print("Current folder is:" + dirName)
             for filen in fileList:
-                path = os.path.join(dirName, filen)
-                file_hash = hashfile(path)
+                dir = os.path.join(dirName, filen)
+                file_hash = hashfile(dir)
                 icnt=icnt+1
                 if file_hash in dups:
                     dicnt=dicnt+1
-                    dups[file_hash].append(path)
+                    dups[file_hash].append(dir)
                     #print("Append")
                 else:
-                    dups[file_hash] = [path]
+                    dups[file_hash] = [dir]
                     #print("ADDDD")
-
-        f.write(dups+"\n")
-        f.write("\n")
-        f.close()
-        return dups
+        DeleteFiles(dups, sttime, icnt, dicnt, toaddr)
+        # return dups
     else:
         print("Invalid Path")
 
@@ -181,26 +129,36 @@ def hashfile(path, blocksize=1024):
     except Exception as EX:
         print(EX)
 
-def DeleteFiles(dict1):
+def DeleteFiles(dict1,sttime, ficnt, dicnt, toaddr):
+    #DeleteFiles(dups, sttime, icnt, dicnt, toaddr)
     results = list(filter(lambda x: len(x) > 1, dict1.values()))
     icnt = 0
+    file="log"
     if len(results) > 0:
+        log_path = os.path.join(file, " file %s.log" % (time.time()))
+        f = open(log_path, 'w')
+
         for result in results:
             #print("$$$result:::",result)
             for subresult in result:
-
+                f.write(subresult + "\n")
+                f.write("\n")
                 icnt += 1
                 if icnt >= 2:
                     os.remove(subresult)
             icnt = 0
+        f.close()
     else:
         print("No duplicates files found.")
+
+
+
 
     connected = is_connected()
 
     if connected:
         starttime = time.time()
-        MailSender(log_path, toaddr)
+        MailSender(log_path,sttime, ficnt, dicnt, toaddr)
         endtime = time.time()
 
         print('Took %s seconds to send mail' % (endtime - starttime))

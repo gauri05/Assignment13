@@ -1,5 +1,6 @@
 import UserDefineFun
 from sys import *
+import time
 
 
 def main():
@@ -19,7 +20,8 @@ def main():
         exit()
     #Processinfor(argv[1],argv[2])
 
-    arr = UserDefineFun.findDup(home.drive)
+
+    UserDefineFun.findDup(argv[1],argv[2])
 
 if __name__ == "__main__":
     main()
